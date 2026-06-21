@@ -1,0 +1,99 @@
+name: Pages + Access deploy
+
+on:
+  workflow_call:
+    inputs:
+      project_name:
+        description: Cloudflare Pages project name
+        required: false
+        type: string
+        default: ""
+      access_domain:
+        description: Hostname to protect with Access
+        required: false
+        type: string
+        default: ""
+      access_app_name:
+        description: Label in Zero Trust dashboard
+        required: false
+        type: string
+        default: ""
+      allowed_emails:
+        description: Comma-separated allowlist (overrides ALLOWED_EMAILS secret)
+        required: false
+        type: string
+        default: ""
+      build_command:
+        description: Shell command to build the app
+        required: false
+        type: string
+        default: "npm ci && npm run build"
+      dist_directory:
+        description: Directory to upload to Pages
+        required: false
+        type: string
+        default: "dist"
+      node_version:
+        description: Node.js version for build
+        required: false
+        type: string
+        default: "22"
+      enable_email_otp:
+        description: Enable One-time PIN login
+        required: false
+        type: string
+        default: "true"
+      deploy_cloudflare_ref:
+        description: Git ref of deploy-cloudflare scripts to use
+        required: false
+        type: string
+        default: "main"
+    secrets:
+      CLOUDFLARE_API_TOKEN:
+        required: true
+      CLOUDFLARE_ACCOUNT_ID:
+        required: true
+      ALLOWED_EMAILS:
+        required: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    env:
+      PROJECT_NAME: ${{ inputs.project_name != '' && inputs.project_name || github.event.repository.name }}
+      ACCESS_DOMAIN: ${{ inputs.access_domain != '' && inputs.access_domain || format('{0}.pages.dev', inputs.project_name != '' && inputs.project_name || github.event.repository.name) }}
+      ACCESS_APP_NAME: ${{ inputs.access_app_name != '' && inputs.access_app_name || github.event.repository.name }}
+      ALLOWED_EMAILS: ${{ inputs.allowed_emails != '' && inputs.allowed_emails || secrets.ALLOWED_EMAILS }}
+    steps:
+      - name: Checkout app
+        uses: actions/checkout@v4
+
+      - name: Checkout deploy scripts
+        uses: actions/checkout@v4
+        with:
+          repository: Kingdingdong823/deploy-cloudflare
+          ref: ${{ inputs.deploy_cloudflare_ref }}
+          path: .cf-deploy
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ inputs.node_version }}
+          cache: npm
+
+      - name: Build, deploy Pages, and secure with Access
+        run: bash .cf-deploy/scripts/deploy-pages-and-access.sh
+        env:
+          APP_ROOT: ${{ github.workspace }}
+          SKIP_BUILD: "false"
+          BUILD_COMMAND: ${{ inputs.build_command }}
+          DIST_DIRECTORY: ${{ inputs.dist_directory }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          CLOUDFLARE_PAGES_PROJECT: ${{ env.PROJECT_NAME }}
+          ACCESS_APP_DOMAIN: ${{ env.ACCESS_DOMAIN }}
+          ACCESS_APP_NAME: ${{ env.ACCESS_APP_NAME }}
+          ALLOWED_EMAILS: ${{ env.ALLOWED_EMAILS }}
+          ENABLE_EMAIL_OTP: ${{ inputs.enable_email_otp }}
