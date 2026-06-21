@@ -16,6 +16,14 @@ Set at **GitHub → Organization → Secrets** (or per-repo if you prefer):
 | `CLOUDFLARE_ACCOUNT_ID` | Your Cloudflare account ID |
 | `ALLOWED_EMAILS` | Default login allowlist (optional if set per workflow) |
 
+```bash
+gh secret set CLOUDFLARE_API_TOKEN --org YOUR_ORG
+gh secret set CLOUDFLARE_ACCOUNT_ID --org YOUR_ORG --body "YOUR_ACCOUNT_ID"
+gh secret set ALLOWED_EMAILS --org YOUR_ORG --body "you@example.com"
+```
+
+Per-repo: use `--repo YOUR_ORG/my-app` instead of `--org`.
+
 ### 2. Add workflow to your app repo
 
 ```yaml
